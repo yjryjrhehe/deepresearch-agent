@@ -10,3 +10,10 @@ wheels/
 .venv
 .env
 config.yaml
+
+models/
+docs/
+opensearch_data/
+.pytest_cache/
+
+notebook.ipynb

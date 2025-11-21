@@ -121,7 +121,7 @@ class LLMFormulaEnrichmentModelWord(BaseEnrichmentModel):
                 docling 管道传来的一批元素 (应为 FormulaItem)。
 
         Yields:
-            NodeItem: 被 LLM 增强后的 *原始 FormulaItem* (已修改)。
+            NodeItem: 被 LLM 增强后的 *原始 FormulaItem* 。
         """
         if not self.enabled:
             # 如果被禁用，原样返回所有元素

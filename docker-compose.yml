@@ -1,0 +1,91 @@
+version: "3.8"
+
+services:
+  # =========================================
+  # 服务 1: OpenSearch 单节点
+  # =========================================
+  opensearch-node:
+    image: opensearchproject/opensearch:3
+    container_name: opensearch-node-dev
+    environment:
+      - discovery.type=single-node
+      # 禁用安全插件 (开发环境专用)
+      - DISABLE_SECURITY_PLUGIN=true
+      # 内存配置 (建议至少 2GB 物理内存)
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      # 将具名卷改为相对路径挂载
+      # 格式：./本地文件夹名:容器内路径
+      - ./opensearch_data:/usr/share/opensearch/data
+    ports:
+      - "127.0.0.1:9200:9200"
+      - "127.0.0.1:9600:9600"
+    networks:
+      - opensearch-dev-net
+
+  # =========================================
+  # 服务 2: OpenSearch Dashboards (可视化界面)
+  # =========================================
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:3
+    container_name: opensearch-dashboards-dev
+    ports:
+      - "127.0.0.1:5601:5601"
+    environment:
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+      # 指向同一个网络内的 opensearch-node
+      - OPENSEARCH_HOSTS=http://opensearch-node:9200
+    depends_on:
+      - opensearch-node
+    networks:
+      - opensearch-dev-net
+
+  # =========================================
+  # 服务 3: TEI Reranker (GPU 推理)
+  # =========================================
+  tei-reranker:
+    # 使用 RTX 40 系专用镜像 (Ada Lovelace 架构)
+    image: ghcr.io/huggingface/text-embeddings-inference:89-1.8
+    container_name: tei-reranker
+    ports:
+      - "8082:80"
+    volumes:
+      # 映射本地 ./models 目录到容器 /models
+      - ./models:/models
+    environment:
+      - USE_FLASH_ATTENTION=false
+      - MAX_CONCURRENT_REQUESTS=1024
+      - MAX_BATCH_REQUESTS=32
+      # 指定显卡，防止跑错设备
+      - NVIDIA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              # count: 1
+              device_ids: ['0'] # 明确指定使用 0 号显卡
+              capabilities: [gpu]
+    command: >
+      --model-id /models/BAAI/bge-reranker-base
+      --port 80 
+      --dtype float16 
+      --auto-truncate
+    restart: always
+    networks:
+      - opensearch-dev-net
+
+# =========================================
+# 全局定义
+# =========================================
+networks:
+  opensearch-dev-net:
+    driver: bridge

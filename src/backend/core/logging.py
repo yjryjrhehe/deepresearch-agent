@@ -11,12 +11,12 @@ def setup_logging():
     """
     
     # 获取 Pydantic settings.py 中定义的日志级别
-    log_level = settings.LOG_LEVEL.upper()
+    log_level = settings.log_level.upper()
     
     # 获取与 "log_level" 字符串匹配的日志级别对象
     numeric_level = getattr(logging, log_level, None)
     if not isinstance(numeric_level, int):
-        raise ValueError(f"无效的日志级别: {settings.LOG_LEVEL}")
+        raise ValueError(f"无效的日志级别: {settings.log_level}")
 
     # 定义一个新的、更好的日志格式
     # %(name)s 会显示 logger 的名字 (例如 "src.backend.services.agent_service")

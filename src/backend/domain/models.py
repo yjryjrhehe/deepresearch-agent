@@ -89,6 +89,14 @@ class RetrievedChunk(BaseModel):
     # 对应流程图2中 "rerank" 步骤的分数
     rerank_score: Optional[float] = Field(None, description="经过Reranker（如Cross-Encoder）重排后的分数")
 
+class BatchRequestItem(BaseModel):
+    """
+    批量重排序请求的单项数据结构。
+    
+    [修改] texts 字段替换为 chunks，直接接收检索结果对象。
+    """
+    query: str = Field(..., description="用于检索或排序的查询文本")
+    chunks: List[RetrievedChunk] = Field(..., description="待排序的检索结果列表")
 
 # --------------------------------------------------------------------
 # 3. 报告生成模型 (对应 Agent 和 API)

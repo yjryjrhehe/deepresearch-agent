@@ -1,15 +1,13 @@
 import logging
 from typing import List
 import asyncio
-
 import json_repair
-from ..llm.clients import preprocessing_chunk_client
+from langchain_core.language_models import BaseChatModel
 
 from .prompt.llm_chunk_preprocess_prompt import LLM_PREPROCESS_PROMPT
 from ...domain.interfaces import PreProcessor
 from ...domain.models import DocumentChunk
 from ...core.logging import setup_logging
-from ...core.config import settings
 
 # === 日志配置 ===
 setup_logging()
@@ -26,16 +24,18 @@ class LLMPreprocessor(PreProcessor):
     以便后续用于增强检索（如向量检索和BM25混合检索）。
     """
 
-    def __init__(self):
+    def __init__(self, llm: BaseChatModel, max_concurrency: int = 5):
         """
         初始化LLM预处理器。
-
-        llm: 一个兼容LangChain BaseChatModel 接口的LLM 客户端实例。
-        max_concurrency: 最大并发 API 请求数 (防止 429 错误)。
+        
+        :param llm: 注入的 LLM 客户端实例 (依赖注入)
+        :param max_concurrency: 最大并发数
         """
-        self.llm = preprocessing_chunk_client
-        self.max_concurrency = settings.PREPROCESSING_LLM_MAX_CONCURRENCY
-        log.info("LLM预处理器 (LLMPreprocessor) 初始化完成。")
+        # 依赖由外部注入，而不是自己创建
+        self.llm = llm
+        self.max_concurrency = max_concurrency
+        
+        log.info("LLMPreprocessor 初始化完成 (依赖已注入)。")
 
     async def preprocess(self, chunk: DocumentChunk) -> List[DocumentChunk]:
         """
@@ -119,7 +119,6 @@ class LLMPreprocessor(PreProcessor):
 
         Args:
             chunks: 所有待处理的块列表。
-            preprocessor: 异步处理器。
 
         Returns:
             成功处理和扩充的块的列表。
