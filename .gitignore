@@ -16,4 +16,7 @@ docs/
 opensearch_data/
 .pytest_cache/
 
+uploads/
+tests/
+
 notebook.ipynb

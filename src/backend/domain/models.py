@@ -1,6 +1,6 @@
 import uuid
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field, model_validator
 import time
 
@@ -105,10 +105,16 @@ class BatchRequestItem(BaseModel):
 class ReportRequest(BaseModel):
     """
     API层 (reports.py) 接收的报告生成请求。
-    也会由 agent_worker.py 消费。
     """
-    query: str = Field(..., description="用户生成报告的原始查询")
-    report_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="报告的唯一ID (可由API端生成)")
+    # 修改：设为 Optional 以支持 resume 阶段 (此时不需要 query)
+    # 如果是 start 阶段，业务逻辑中会校验 query 是否存在
+    query: Optional[str] = Field(None, description="用户生成报告的原始查询")
+    
+    report_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="报告的唯一ID (即 thread_id)")
+    
+    # 新增：控制字段，用于处理 LangGraph 的中断恢复 (Start / Approve / Revise)
+    action: Literal["start", "approve", "revise"] = Field("start", description="执行动作：开始、批准、修改")
+    feedback: Optional[str] = Field(None, description="用户反馈信息 (仅在 action=revise 时有效)")
 
 
 class Report(BaseModel):

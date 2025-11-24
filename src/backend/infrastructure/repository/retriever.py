@@ -4,9 +4,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 # 导入标准接口和数据模型
-from ..domain.interfaces import Retriever, SearchRepository
-from ..domain.models import RetrievedChunk
-from ..infrastructure.llm.reranker import TEIRerankerClient
+from ...domain.interfaces import Retriever, SearchRepository
+from ...domain.models import RetrievedChunk
+from ..llm.reranker import TEIRerankerClient
 
 # 初始化日志
 log = logging.getLogger(__name__)

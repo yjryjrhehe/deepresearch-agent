@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #f9fafb;
+  color: #1f2937;
+}
+
+/* --- 强制 Markdown 样式 (不依赖插件) --- */
+/* 给包含 Markdown 的容器加上 .markdown-content 类即可生效 */
+
+.markdown-content {
+  color: #374151; /* text-gray-700 */
+  line-height: 1.75;
+}
+
+/* 标题样式 */
+.markdown-content h1 {
+  font-size: 1.875rem; /* 30px */
+  line-height: 2.25rem;
+  font-weight: 800;
+  color: #111827; /* text-gray-900 */
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.markdown-content h2 {
+  font-size: 1.5rem; /* 24px */
+  line-height: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.25rem;
+}
+
+.markdown-content h3 {
+  font-size: 1.25rem; /* 20px */
+  line-height: 1.75rem;
+  font-weight: 600;
+  color: #374151;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* 段落与列表 */
+.markdown-content p {
+  margin-bottom: 1.25em;
+}
+
+.markdown-content ul {
+  list-style-type: disc;
+  padding-left: 1.625em;
+  margin-bottom: 1.25em;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
+  padding-left: 1.625em;
+  margin-bottom: 1.25em;
+}
+
+.markdown-content li {
+  margin-bottom: 0.5em;
+  padding-left: 0.375em;
+}
+
+/* 其他元素 */
+.markdown-content strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+.markdown-content blockquote {
+  font-weight: 500;
+  font-style: italic;
+  color: #111827;
+  border-left-width: 0.25rem;
+  border-left-color: #e5e7eb;
+  quotes: "\201C""\201D""\2018""\2019";
+  margin-top: 1.6em;
+  margin-bottom: 1.6em;
+  padding-left: 1em;
+  background-color: #f9fafb;
+  padding: 1rem;
+  border-radius: 0.25rem;
+}
+
+.markdown-content code {
+  font-weight: 600;
+  color: #111827;
+  font-size: 0.875em;
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+}
+
+/* 【新增】表格样式 */
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+  font-size: 0.9em;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  border-radius: 0.375rem;
+}
+
+.markdown-content th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+  color: #111827;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.markdown-content td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #4b5563;
+}
+
+.markdown-content tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-content tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.markdown-content tr:hover {
+  background-color: #f3f4f6;
+}
+
+/* 【新增】LaTeX 公式样式调整 */
+.katex {
+  font-size: 1.1em !important;
+}
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5em 0;
+}

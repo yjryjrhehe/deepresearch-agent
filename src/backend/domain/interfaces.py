@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, AsyncGenerator
 from .models import DocumentSource, DocumentChunk, RetrievedChunk, ReportRequest, Report
 import asyncio
 
@@ -15,7 +15,7 @@ class DocumentParser(ABC):
     """
 
     @abstractmethod
-    def parse(self, source: DocumentSource) -> str:
+    async def parse(self, source: DocumentSource) -> str:
         """
         解析原始文档。
         :param source: DocumentSource对象，包含文件路径等信息。
@@ -103,70 +103,6 @@ class SearchRepository(ABC):
         """
         pass
 
-
-# class LLmClient(ABC):
-#     """
-#     LLM 客户端的抽象。
-#     基于openai原生sdk或 Langchain 封装的openai接口，调用liteLLM代理接口，由 infrastructure/llm/clients.py 实现。
-#     """
-
-#     @abstractmethod
-#     def generate_completion(self, prompt: str) -> str:
-#         """通用的文本生成，可用于文生文，图生文等"""
-#         pass
-
-#     @abstractmethod
-#     def get_embeddings(self, texts: List[str]) -> List[List[float]]:
-#         """
-#         为一批文本生成 Embedding 向量。
-
-#         此方法用于：
-#         1. [摄入] IngestionService 在存入 OpenSearch 前，为 DocumentChunk 生成向量。
-#         2. [检索] RetrievalService 在搜索 OpenSearch 前，为用户的查询 (query) 生成向量。
-
-#         :param texts: 需要向量化的字符串列表（支持批量处理）。
-#         :return: 向量列表，每个向量是 List[float]，顺序与输入 texts 对应。
-#         """
-#         pass
-
-#     @abstractmethod
-#     def generate_chunk_enhancements(self, chunk_content: str) -> tuple[str, List[str]]:
-#         """
-#         为文本块生成摘要和假设性问题。
-#         对应 "为文本块添加摘要和假设性问题"。
-#         :param chunk_content: 文本块内容。
-#         :return: (summary, hypothetical_questions) 元组。
-#         """
-#         pass
-
-#     @abstractmethod
-#     def rewrite_query(self, query: str) -> List[str]:
-#         """
-#         重写查询。
-#         对应流程图2的 "重写query"。
-#         :return: sub_query 列表。
-#         """
-#         pass
-
-#     @abstractmethod
-#     def rerank(self, query: str, chunks: List[DocumentChunk]) -> List[RetrievedChunk]:
-#         """
-#         对检索到的块进行重排序 (Rerank)。
-#         对应流程图2的 "rerank"。
-#         :param query: 原始查询。
-#         :param chunks: 从 hybrid_search 检索到的块列表。
-#         :return: 带 rerank_score 的重排后列表。
-#         """
-#         pass
-
-#     @abstractmethod
-#     def synthesize_report(self, query: str, chunks: List[RetrievedChunk]) -> str:
-#         """
-#         根据检索到的上下文综合撰写报告。
-#         由 AgentService 调用。
-#         :return: Markdown 格式的报告内容。
-#         """
-#         pass
 
 # class IMessageProducer(ABC):
 #     """
@@ -260,11 +196,11 @@ class Retriever(ABC):
 class AgentService(ABC):
     """
     报告生成智能体服务 (业务流程编排)。
-    由 services/agent_service.py 实现。
+    由 AgentServiceImpl 实现。
     """
 
     @abstractmethod
-    def generate_report(self, request: ReportRequest):
+    async def generate_report(self, request: ReportRequest) -> AsyncGenerator[str, None]:
         """
         编排完整的报告生成流程。
         将graph封装进来，提取每一步的输出结果（yield），实现流式输出。

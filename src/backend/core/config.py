@@ -180,6 +180,25 @@ class RewriteLLMSettings(BaseConfigSettings):
     max_concurrency: int = 30
 
 
+class ResearchLLMSettings(BaseConfigSettings):
+    """
+    research (深度研究智能体) LLM 配置。
+    环境变量前缀: RESEARCH_LLM_
+    """
+    model_config = SettingsConfigDict(
+        env_file=str(ENV_FILE_PATH),
+        env_prefix="RESEARCH_LLM_",
+        extra="ignore",
+        frozen=True,
+        case_sensitive=False,
+    )
+
+    api_key: str
+    base_url: str
+    model: str
+    max_concurrency: int = 30
+
+
 class TeiRerankSettings(BaseConfigSettings):
     """
     TEI (Text Embeddings Inference) Reranker 重排序配置。
@@ -249,6 +268,7 @@ class Settings(BaseConfigSettings):
     preprocessing_llm: PreprocessingLLMSettings = Field(default_factory=PreprocessingLLMSettings)
     embedding_llm: EmbeddingLLMSettings = Field(default_factory=EmbeddingLLMSettings)
     rewrite_llm: RewriteLLMSettings = Field(default_factory=RewriteLLMSettings)
+    research_llm : ResearchLLMSettings = Field(default_factory=ResearchLLMSettings)
     
     tei_rerank: TeiRerankSettings = Field(default_factory=TeiRerankSettings)
     opensearch: OpenSearchSettings = Field(default_factory=OpenSearchSettings)

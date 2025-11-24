@@ -1,10 +1,10 @@
 import logging
 import asyncio
-from typing import List
+from typing import Callable, Awaitable, Optional
 
 # --- 导入领域模型和接口 ---
 from ..domain.interfaces import Ingestor, DocumentParser, PreProcessor, TextSplitter, SearchRepository
-from ..domain.models import DocumentSource, DocumentChunk
+from ..domain.models import DocumentSource
 
 # --- 导入日志配置 ---
 from ..core.logging import setup_logging
@@ -33,74 +33,89 @@ class IngestionService(Ingestor):
         preprocessor: PreProcessor,
         store: SearchRepository
     ):
-        """
-        初始化摄入服务。
-        """
         self.parser = parser
         self.splitter = splitter
         self.preprocessor = preprocessor
         self.store = store
-
         log.info("IngestionService 初始化完毕 (依赖已注入)。")
 
-    async def pipeline(self, source: DocumentSource):
+    async def _emit(self, msg: str, status_callback: Optional[Callable[[str], Awaitable[None]]] = None):
+        """
+        辅助方法：同时打印日志并调用回调 (如果提供了回调)
+        """
+        log.info(msg)
+        if status_callback:
+            await status_callback(msg)
+
+    async def _emit_error(self, msg: str, status_callback: Optional[Callable[[str], Awaitable[None]]] = None):
+        """
+        错误辅助方法：打印错误日志并调用回调发送错误信息
+        """
+        log.error(msg)
+        if status_callback:
+            await status_callback(f"❌ {msg}")
+
+    async def pipeline(
+        self, 
+        source: DocumentSource, 
+        status_callback: Optional[Callable[[str], Awaitable[None]]] = None
+    ):
         """
         集成文档解析、分块、预处理和存入数据库的完整异步 pipeline。
         
-        :param source: 包含待处理文档路径的 DocumentSource 对象。
+        :param source: 文档源
+        :param status_callback: [新增] 异步回调函数，用于向外部发送实时日志消息
         """
-        log.info(f"--- [PIPELINE START] ---")
-        log.info(f"开始处理文档: {source.document_name} (ID: {source.document_id})")
+        
+        await self._emit(f"--- [开始处理] 文档: {source.document_name} ---", status_callback)
 
         try:
             # --- 1. 解析 (Parse) ---
-            # self.parser.parse() 是一个异步 I/O 密集型操作 (来自 DoclingParser)
-            # 我们使用 asyncio.to_thread 将其移出主事件循环，防止阻塞。
-            log.info(f"步骤 1/4: [解析] 正在使用 DoclingParser 解析...")
+            await self._emit(f"步骤 1/4: 正在解析文档...", status_callback)
+
             md_content = await self.parser.parse(source)
             
-            if not md_content or not md_content.strip():
-                log.error(f"[PIPELINE FAILED] 解析失败: {source.document_name} (ID: {source.document_id}) 未返回任何内容。")
+            if not md_content or not str(md_content).strip():
+                await self._emit_error(f"解析失败: 未提取到内容。", status_callback)
                 return
             
-            log.info(f"步骤 1/4: [解析] 成功，Markdown 内容长度: {len(md_content)}")
+            await self._emit(f"步骤 1/4: 解析成功，内容长度: {len(md_content)}", status_callback)
 
             # --- 2. 切分 (Split) ---
-            # self.splitter.split() 是一个同步 CPU 密集型操作 (来自 MarkdownSplitter)
-            # 同样使用 asyncio.to_thread。
-            log.info(f"步骤 2/4: [切分] 正在使用 MarkdownSplitter 切分...")
-            initial_chunks: List[DocumentChunk] = await asyncio.to_thread(
+            await self._emit(f"步骤 2/4: 正在切分文本...", status_callback)
+            # 假设 splitter.split 是同步的 CPU 密集型，使用 to_thread
+            initial_chunks = await asyncio.to_thread(
                 self.splitter.split, md_content, source
             )
             
             if not initial_chunks:
-                log.warning(f"[PIPELINE 终止] 切分失败或未产生任何块: {source.document_name}")
+                await self._emit_error(f"切分失败或未产生任何块。", status_callback)
                 return
                 
-            log.info(f"步骤 2/4: [切分] 成功，切分为 {len(initial_chunks)} 个初始块。")
+            await self._emit(f"步骤 2/4: 切分成功，生成 {len(initial_chunks)} 个块。", status_callback)
 
             # --- 3. 预处理 (Preprocess) ---
-            # self.preprocessor.run_concurrent_preprocessing() 是一个异步操作 (来自 LLMPreprocessor)
-            # 它内部处理了并发和LLM调用。
-            log.info(f"步骤 3/4: [预处理] 正在使用 LLMPreprocessor 并发处理 {len(initial_chunks)} 个块...")
+            await self._emit(f"步骤 3/4: 正在进行智能预处理 (LLM)...", status_callback)
             enriched_chunks = await self.preprocessor.run_concurrent_preprocessing(initial_chunks)
             
             if not enriched_chunks:
-                log.error(f"[PIPELINE FAILED] 预处理失败: {source.document_name} (ID: {source.document_id}) 未返回任何有效块。")
+                await self._emit_error(f"预处理失败: 未返回有效块。", status_callback)
                 return
             
-            log.info(f"步骤 3/4: [预处理] 成功，{len(enriched_chunks)} / {len(initial_chunks)} 个块已扩充。")
+            await self._emit(f"步骤 3/4: 预处理成功，处理了 {len(enriched_chunks)} 个块。", status_callback)
 
             # --- 4. 存储 (Store) ---
-            # self.store.bulk_add_documents() 是一个异步操作 (来自 AsyncOpenSearchRAGStore)
-            log.info(f"步骤 4/4: [存储] 正在使用 AsyncOpenSearchRAGStore 批量存入 {len(enriched_chunks)} 个块...")
+            await self._emit(f"步骤 4/4: 正在写入向量数据库...", status_callback)
             await self.store.bulk_add_documents(enriched_chunks)
             
-            log.info(f"步骤 4/4: [存储] 成功。")
-            log.info(f"--- [PIPELINE SUCCESS] ---")
-            log.info(f"文档 {source.document_name} (ID: {source.document_id}) 处理完毕。")
+            await self._emit(f"步骤 4/4: 存储成功。", status_callback)
+            await self._emit(f"✅ 文档 {source.document_name} 处理完毕！", status_callback)
 
         except FileNotFoundError as e:
-            log.error(f"[PIPELINE FAILED] 文件未找到: {source.file_path}. 错误: {e}", exc_info=True)
+            await self._emit_error(f"文件未找到: {source.file_path}", status_callback)
         except Exception as e:
-            log.error(f"[PIPELINE FAILED] 处理 {source.document_name} 时发生未知错误: {e}", exc_info=True)
+            await self._emit_error(f"处理过程发生未知错误: {str(e)}", status_callback)
+            import traceback
+            traceback.print_exc()
+
+

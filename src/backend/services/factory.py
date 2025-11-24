@@ -1,10 +1,10 @@
 import logging
 from functools import lru_cache
 
-from ..domain.interfaces import Retriever
+from ..domain.interfaces import AgentService
 # 1. 导入 Service 类
 from .ingestion_service import IngestionService
-from .retrieval_service import RetrievalService
+from .agent_service import AgentServiceImpl
 
 # 2. 导入其他基础设施的工厂函数
 from ..infrastructure.parse.factory import (
@@ -13,7 +13,6 @@ from ..infrastructure.parse.factory import (
     get_markdown_splitter
 )
 from ..infrastructure.repository.factory import get_opensearch_store
-from ..infrastructure.llm.factory import get_rewrite_llm, get_rerank_client
 
 log = logging.getLogger(__name__)
 
@@ -50,17 +49,10 @@ def get_ingestion_service() -> IngestionService:
         log.error(f"IngestionService 工厂初始化失败: {e}", exc_info=True)
         raise e
     
-# ==========================================
-# 工厂方法 (Dependency Injection Entry Point)
-# ==========================================
 
-def get_retrieval_service() -> Retriever:
+@lru_cache()
+def get_agent_service() -> AgentService:
     """
-    工厂函数：组装并返回 RetrievalServiceImpl 实例。
-    这里负责将 infrastructure 层的具体实现注入到 service 层。
+    创建并返回 AgentService 的实例 (返回接口类型，实际是实现类)
     """
-    return RetrievalService(
-        search_repo=get_opensearch_store(),
-        rewrite_llm=get_rewrite_llm(),
-        rerank_client=get_rerank_client()
-    )
+    return AgentServiceImpl()

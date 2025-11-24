@@ -70,3 +70,18 @@ def get_rerank_client() -> TEIRerankerClient:
         timeout=settings.tei_rerank.timeout,
         max_concurrency=settings.tei_rerank.max_concurrency
     )
+
+# ==========================================
+# 5. research LLM
+# ==========================================
+@lru_cache()
+def get_research_llm() -> ChatOpenAI:
+    """
+    获取用于 research 的 LLM 客户端单例。
+    """
+    return ChatOpenAI(
+        base_url=settings.rewrite_llm.base_url,
+        api_key=settings.rewrite_llm.api_key,
+        model=settings.rewrite_llm.model,
+        temperature=0
+    )
