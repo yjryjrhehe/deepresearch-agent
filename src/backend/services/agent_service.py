@@ -2,11 +2,14 @@ import json
 import traceback
 from typing import AsyncGenerator, Optional, Dict, Any
 from langgraph.types import Command
+from langfuse.langchain import CallbackHandler
 
 # 导入获取图的方法
 from ..infrastructure.agents.orchestrator_agent import get_orchestrator_graph
 from ..domain.interfaces import AgentService
 from ..domain.models import ReportRequest
+from ..infrastructure.langfuse.factory import init_langfuse_client
+from ..core.config import settings
 
 class AgentServiceImpl(AgentService):
     def __init__(self):
@@ -59,7 +62,26 @@ class AgentServiceImpl(AgentService):
         """
         内部方法：执行 Graph 并生成 SSE 格式的流。
         """
-        config = {"configurable": {"thread_id": thread_id}}
+        # 1. 【统一入口】使用工厂函数初始化（或获取已存在的）实例
+        langfuse = init_langfuse_client(
+            public_key=settings.langfuse.public_key,
+            secret_key=settings.langfuse.secret_key,
+            base_url=settings.langfuse.base_url
+        )
+        # 2. 初始化 Handler
+        # 因为上面一步已经确保了 Langfuse 实例存在且注册了，
+        # 这里不需要传参，它会自动找到上面那个实例
+        langfuse_handler = CallbackHandler()
+
+        config = {
+            "configurable": {"thread_id": thread_id}, 
+            "callbacks": [langfuse_handler],
+            # 🟢【修正点】：Key 必须以 "langfuse_" 开头
+            "metadata": {
+                "langfuse_session_id": thread_id,  # 只有这样写，Langfuse 才会把它归类到 Session
+                "thread_id": thread_id             # 保留这个作为普通元数据方便查看
+            }
+            }
 
         try:
             # 决定是启动新任务还是恢复中断
@@ -117,3 +139,12 @@ class AgentServiceImpl(AgentService):
             print(f"Stream Error: {e}")
             traceback.print_exc()
             yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+        finally:
+            try:
+                # 强制发送缓冲区的数据
+                if langfuse:
+                    langfuse.flush()
+            except Exception as e:
+                # 如果日志发送失败（比如断网），只打印错误，不要影响业务的主流程
+                print(f"[Langfuse] Flush failed: {e}")

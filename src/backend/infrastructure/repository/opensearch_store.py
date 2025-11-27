@@ -55,6 +55,9 @@ class AsyncOpenSearchRAGStore(SearchRepository):
             verify_certs=settings.opensearch.verify_certs,
             ssl_assert_hostname=False,
             ssl_show_warn=False,
+            timeout=60,
+            max_retry=3,
+            retry_on_timeout=True
         )
         
         # 使用 liteLLM 客户端

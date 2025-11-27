@@ -15,6 +15,9 @@ from .worker_agent import get_worker_agent
 from .reflector_agent import get_reflector_agent
 from ..llm.factory import get_research_llm
 from .states import MainState
+# 引入新提取的提示词模块
+from .prompt.reporter_prompt import REPORT_WRITER_TEMPLATE
+from .utils import construct_messages_with_fallback
 
 # 初始化子图 (获取编译后的图实例)
 planner_graph = get_planner_agent()
@@ -212,39 +215,46 @@ async def report_node(state: MainState, config: RunnableConfig):
 
     print("--- [Writer] 正在撰写最终报告 ---")
     
-    llm = get_research_llm()
     
-    results_text = "\n\n".join([
-        f"### {r.title}\n{r.content}" 
-        for r in state["results"]
-    ])
-    
-    prompt = f"""
-    请根据以下研究大纲以及对应的研究结果，撰写一份关于 "{state['goal']}" 的最终研究报告。
-    报告应结构清晰，包含引言、研究内容（每一章的标题与研究任务相对应）、结论。
-    
-    【严格格式要求】
-    1. **必须使用 Markdown 语法**进行排版，使用latex语法表达公式（若有）：
-       - 报告标题使用 `# 标题`
-       - 章节标题使用 `## 标题`
-       - 子章节使用 `### 标题`
-       - 重点内容使用 `**加粗**`
-    2. **禁止**使用代码块包裹（即**不要**在开头加 ```markdown，也不要在结尾加 ```）。
-    3. 请直接输出 Markdown 原始内容。
-    4. 在你撰写的研究报告中引用参考资料的来源，在文中存在引用的位置末尾直接以“（文档名）”的格式引用，不需要在研究报告末尾添加参考文献等章节。
+    # 1. 组织输入数据
+    # 使用明确的文本分隔符，指示 LLM 这是原始素材
+    results_text = ""
+    for r in state.get("results", []):
+        results_text += f"【子任务研究结果：{r.title}】\n{r.content}\n\n"
 
-    【研究大纲以及对应的研究结果】
-    {results_text}
-    """
-    
-    messages = [HumanMessage(content=prompt)]
-    
-    # 注意：为了支持流式，这里不需要改代码，因为 ChatOpenAI 默认支持 astream
+    context_vars = {
+        "goal": state.get('goal', '未命名主题'),
+        "results_text": results_text
+    }
+
+    # 构建最终 User Prompt
+    messages, langfuse_prompt_obj = construct_messages_with_fallback("reporter/reporter-prompt", context_vars)
+    if messages is None:
+        # 使用 prompts 模块中的模板进行格式化
+        prompt = REPORT_WRITER_TEMPLATE.format(
+            goal=state.get('goal', '未命名主题'),
+            results_text=results_text
+        )
+        
+        messages = [HumanMessage(content=prompt)]
+
     # LangGraph 的 astream_events 会自动捕获内部的流
     # 【修改】透传 config，确保流式事件能被捕获
-    response = await llm.ainvoke(messages, config)
-    
-    return {"final_report": response.content}
+    try:
+        llm = get_research_llm()
+        # 将 prompt 对象注入 config
+        # 确保 config metadata 存在
+        if config is None: config = {}
+        if "metadata" not in config: config["metadata"] = {}
+        
+        # 如果成功获取到了 langfuse 对象，注入它
+        if langfuse_prompt_obj:
+            config["metadata"]["langfuse_prompt"] = langfuse_prompt_obj
+        response = await llm.ainvoke(messages, config)
+        
+        return {"final_report": response.content}
+    except Exception as e:
+        print(f"撰写报告过程中发生错误：{e}")
 
 # ==========================================
 # 4. 图构建 (Graph Construction)

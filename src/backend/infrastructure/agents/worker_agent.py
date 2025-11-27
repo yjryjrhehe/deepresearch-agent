@@ -11,6 +11,9 @@ from langchain_core.runnables import RunnableConfig
 from ..llm.factory import get_research_llm
 from .states import WorkerState, TaskResult
 from .utils import fetch_rag_context
+# 引入新提取的提示词模块
+from .prompt.worker_prompt import WORKER_SUMMARIZATION_TEMPLATE, WORKER_SYSTEM_PROMPT
+from .utils import construct_messages_with_fallback
 
 # ==========================================
 # 节点函数 (Node Functions)
@@ -45,52 +48,58 @@ async def summarize_node(state: WorkerState, config: RunnableConfig) -> Dict[str
     task = state["task"]
     raw_data_list = state.get("raw_data", [])
 
-    # 1. 构建上下文
-    context_text = ""
+    # 1. 构建带有索引的上下文
+    # 格式：--- 资料 1 (来源: arXiv_2309.1234.pdf) ---
+    context_segments = []
     references = set()
     
     for idx, item in enumerate(raw_data_list, 1):
-        content = item.get("content", "")
-        source = item.get("document_name", "Unknown")
-        if content and content != "未找到相关资料":
-            context_text += f"--- 资料 {idx} (来源: {source}) ---\n{content}\n\n"
+        content = item.get("content", "").strip()
+        source = item.get("document_name", "未知来源")
+        
+        # 过滤无效内容
+        if content and content != "未找到相关资料" and len(content) > 10:
+            segment = f"--- 资料 {idx} (来源: {source}) ---\n{content}"
+            context_segments.append(segment)
             references.add(source)
     
-    if not context_text:
+    if not context_segments:
         context_text = "未检索到有效信息。"
+    else:
+        context_text = "\n\n".join(context_segments)
 
-    # 2. 调用 LLM 进行总结
-    llm = get_research_llm()
+    context_vars = {
+        "title": task.title,
+        "intent": task.intent,
+        "context_text": context_text
+    }
+
+    # 构建最终 User Prompt
+    messages, langfuse_prompt_obj = construct_messages_with_fallback("worker/worker-summarization", context_vars)
     
-    prompt = f"""
-    你是一个专业的AI研究员。请根据以下背景资料完成研究任务。
+    if messages is None:
+        # 使用 prompts 模块中的模板进行格式化
+        prompt = WORKER_SUMMARIZATION_TEMPLATE.format(
+            title=task.title,
+            intent=task.intent,
+            context_text=context_text
+        )
 
-    【任务信息】
-    标题：{task.title}
-    意图：{task.intent}
-
-    【背景资料】
-    {context_text}
-
-    【要求】
-    1. 请严格根据背景资料，详细回答任务意图所需要的内容。
-    2. 在你撰写的研究报告中引用参考资料的位置保留参考资料的来源（文档名）。
-    3. 输出必须包含两部分：
-       - content: 研究意图对应的详细研究结果（必须是Markdown格式字符串，若有公式，则使用latex语法）。
-       - summary: 对研究结果的一段简练的摘要（100字以内，必须是纯文本字符串）。
-    4. 请严格按照以下 JSON 格式返回，不要包含 Markdown 代码块标记：
-    {{
-        "content": "这里填入你的研究结果...",
-        "summary": "这里填入研究结果的摘要..."
-    }}
-    """
-
-    messages = [
-        SystemMessage(content="你是一个输出 JSON 格式的助手。"),
-        HumanMessage(content=prompt)
-    ]
+        messages = [
+            SystemMessage(content=WORKER_SYSTEM_PROMPT),
+            HumanMessage(content=prompt)
+        ]
 
     try:
+        llm = get_research_llm()
+        # 将 prompt 对象注入 config
+        # 确保 config metadata 存在
+        if config is None: config = {}
+        if "metadata" not in config: config["metadata"] = {}
+        
+        # 如果成功获取到了 langfuse 对象，注入它
+        if langfuse_prompt_obj:
+            config["metadata"]["langfuse_prompt"] = langfuse_prompt_obj
         # 透传 config
         response = await llm.ainvoke(messages, config=config)
         result_text = response.content.strip()

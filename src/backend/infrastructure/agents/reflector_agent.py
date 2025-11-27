@@ -9,7 +9,9 @@ from langchain_core.runnables import RunnableConfig
 
 from .states import ReflectionState
 from ..llm.factory import get_research_llm
-
+# 引入新提取的提示词模块
+from .prompt.reflector_prompt import REFLECTION_SYSTEM_PROMPT, REFLECTION_EVALUATION_TEMPLATE
+from .utils import construct_messages_with_fallback
 
 async def reflection_reasoning_node(state: ReflectionState, config: RunnableConfig) -> Dict[str, Any]:
     """
@@ -37,40 +39,38 @@ async def reflection_reasoning_node(state: ReflectionState, config: RunnableConf
         context_list.append(f"【任务ID: {r.task_id} | 任务题目: {r.title}】\n结果摘要: {r.summary}\n")
     
     context_str = "\n".join(context_list)
+
+    context_vars = {
+        "goal": goal,
+        "context_str": context_str
+    }
     
-    llm = get_research_llm()
+    # 构建最终 User Prompt
+    messages, langfuse_prompt_obj = construct_messages_with_fallback("reflector/reflector-evaluation", context_vars)
 
-    prompt = f"""
-    你是一个严格的研究评估专家。请根据总体研究目标，结合已完成的各子任务题目及其研究摘要，评估研究是否已达成目标。
+    if messages is None:
+        # 使用 prompts 模块中的模板进行格式化
+        prompt = REFLECTION_EVALUATION_TEMPLATE.format(
+            goal=goal,
+            context_str=context_str
+        )
 
-    【总体研究目标】
-    {goal}
-
-    【已完成的任务与结果摘要】
-    {context_str}
-
-    【评估任务】
-    请仔细分析上述“已完成的任务”与“结果摘要”，判断它们是否已经提供了充足的信息，可以支持撰写一份深度、全面的研究报告来回答“总体研究目标”。
-    
-    判别标准：
-    1. 覆盖度：已完成的任务题目是否覆盖了总体目标的所有关键维度？
-    2. 深度：结果摘要中的信息是否足够深入，还是仅流于表面？
-    3. 证据：是否有具体的数据或案例支持？
-
-    【输出要求】
-    请严格按照以下 JSON 格式返回结果，不要包含 Markdown 标记：
-    {{
-        "is_sufficient": true 或 false,
-        "knowledge_gap": "如果 is_sufficient 为 false，请简明扼要地描述缺少的关键视角、数据或具体案例（50字以内）。如果为 true，请填空字符串。"
-    }}
-    """
-
-    messages = [
-        SystemMessage(content="你是一个输出 JSON 格式的研究评估助手。"),
-        HumanMessage(content=prompt)
-    ]
+        messages = [
+            SystemMessage(content=REFLECTION_SYSTEM_PROMPT),
+            HumanMessage(content=prompt)
+        ]
 
     try:
+        llm = get_research_llm()
+        # 将 prompt 对象注入 config
+        # 确保 config metadata 存在
+        if config is None: config = {}
+        if "metadata" not in config: config["metadata"] = {}
+        
+        # 如果成功获取到了 langfuse 对象，注入它
+        if langfuse_prompt_obj:
+            config["metadata"]["langfuse_prompt"] = langfuse_prompt_obj
+
         # 异步调用 LLM
         response = await llm.ainvoke(messages, config=config)
         result_text = response.content.strip()

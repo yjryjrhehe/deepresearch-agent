@@ -243,6 +243,22 @@ class OpenSearchSettings(BaseConfigSettings):
     verify_certs: bool = False
     bulk_chunk_size: int = 500
 
+class LangfuseSettings(BaseConfigSettings):
+    """
+    langfuse 配置信息
+    """
+    model_config = SettingsConfigDict(
+        env_file=str(ENV_FILE_PATH),
+        env_prefix="LANGFUSE_",
+        extra="ignore",
+        frozen=True,
+        case_sensitive=False,
+    )
+
+    secret_key: str = "sk-lf-7d3254c6-7526-40f3-b04d-65cd74789c46"
+    public_key: str = "pk-lf-bf5bdbd6-a16a-4841-b2dc-7494838551e1"
+    base_url: str = "http://localhost:3000"
+
 
 class Settings(BaseConfigSettings):
     """
@@ -272,6 +288,8 @@ class Settings(BaseConfigSettings):
     
     tei_rerank: TeiRerankSettings = Field(default_factory=TeiRerankSettings)
     opensearch: OpenSearchSettings = Field(default_factory=OpenSearchSettings)
+
+    langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
 
 
 # --- 全局设置实例 ---

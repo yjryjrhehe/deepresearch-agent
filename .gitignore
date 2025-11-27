@@ -17,5 +17,6 @@ opensearch_data/
 .pytest_cache/
 
 uploads/
+langfuse/data/
 
 notebook.ipynb

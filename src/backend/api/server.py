@@ -3,6 +3,7 @@ import shutil
 import uuid
 import os
 import asyncio 
+import aiofiles
 import json
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -28,7 +29,7 @@ app.add_middleware(
 )
 
 # ==========================================
-# 路由定义
+# 1. DeepResearch 服务接口
 # ==========================================
 
 @app.post("/api/research/start")
@@ -47,7 +48,7 @@ async def stream_research(
     """
     SSE 流式输出接口
     """
-    # 【关键修复】构造 ServiceReportRequest 对象
+    # 构造 ServiceReportRequest 对象
     # 不再直接传 input_data，而是传封装好的 request 对象
     service_request = ServiceReportRequest(
         report_id=thread_id,
@@ -71,7 +72,7 @@ async def review_plan(
     if req.action not in ["approve", "revise"]:
         raise HTTPException(status_code=400, detail="Invalid action")
 
-    # 【关键修复】构造 ServiceReportRequest 对象 (Resume 模式)
+    # 构造 ServiceReportRequest 对象 (Resume 模式)
     service_request = ServiceReportRequest(
         report_id=req.thread_id,
         action=req.action, 
@@ -85,10 +86,20 @@ async def review_plan(
     )
 
 # ==========================================
-# 新增：文档上传与解析接口 (修复后)
+# 2. 文档上传与解析接口
 # ==========================================
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# 辅助函数：异步保存文件
+async def save_upload_file_async(upload_file: UploadFile, destination: str):
+    try:
+        async with aiofiles.open(destination, 'wb') as out_file:
+            # 这种方式是真正的异步读写，不会阻塞 Event Loop
+            while content := await upload_file.read(1024 * 1024):  # 1MB chunks
+                await out_file.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"文件保存失败: {e}")
 
 @app.post("/api/ingest/upload")
 async def upload_and_ingest_document(
@@ -98,76 +109,63 @@ async def upload_and_ingest_document(
     """
     上传文件并触发解析流程，实时流式返回解析日志。
     """
-    # 1. 保存文件到本地
+    # 1. 准备路径
+    if not os.path.exists(UPLOAD_DIR):
+        os.makedirs(UPLOAD_DIR)
+        
     safe_filename = f"{uuid.uuid4()}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, safe_filename)
     
-    try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"文件保存失败: {e}")
+    # 2. 异步保存文件，避免阻塞主线程
+    await save_upload_file_async(file, file_path)
 
-    # 2. 创建 DocumentSource 对象
+    # 3. 创建 DocumentSource 对象
     source = DocumentSource(
         file_path=file_path,
         document_name=file.filename,
         document_id=str(uuid.uuid4())
     )
 
-    # 3. 定义流式生成器 (使用 Queue 模式)
+    # 4. 定义流式生成器
     async def ingestion_stream_generator():
-        # 创建一个异步队列
         queue = asyncio.Queue()
-        
-        # 定义停止信号 (Sentinel)
         STOP_SIGNAL = object()
 
-        # 定义回调函数：这是一个普通异步函数，不再使用 yield
         async def status_callback(msg: str):
-            # 将消息放入队列
-            sse_msg = f"event: log\ndata: {json.dumps({'message': msg})}\n\n"
+            # 构造标准的 SSE 格式
+            sse_msg = f"event: log\ndata: {json.dumps({'message': msg}, ensure_ascii=False)}\n\n"
             await queue.put(sse_msg)
 
-        # 封装业务逻辑的运行器
         async def run_pipeline():
             try:
-                # 发送开始消息
-                await status_callback(f"📥 文件 {file.filename} 上传成功，开始解析...")
-                
-                # 执行 pipeline
-                # 注意：Service 内部可以放心地 await callback(...)
+                await status_callback(f"文件: {file.filename} 上传成功，开始解析...")
                 await ingestion_service.pipeline(source, status_callback)
-                
-                # 成功完成消息
                 await status_callback("✅ 解析流程完成。")
             except Exception as e:
-                # 发送错误消息
-                error_msg = f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
-                await queue.put(error_msg)
+                error_data = json.dumps({'error': str(e)}, ensure_ascii=False)
+                await queue.put(f"event: error\ndata: {error_data}\n\n")
             finally:
-                # 无论成功失败，最后放入停止信号
                 await queue.put(STOP_SIGNAL)
 
-        # 在后台启动任务，不阻塞 yield 循环
+        # 启动后台任务
         task = asyncio.create_task(run_pipeline())
 
-        # 循环消费队列中的消息并 yield 给前端
-        while True:
-            # 等待队列中有新消息
-            data = await queue.get()
-            
-            # 如果收到停止信号，跳出循环，结束流
-            if data is STOP_SIGNAL:
-                break
-            
-            # 将消息发送给前端
-            yield data
+        try:
+            while True:
+                data = await queue.get()
+                if data is STOP_SIGNAL:
+                    break
+                yield data
+        except asyncio.CancelledError:
+            # 如果前端断开连接（比如用户刷新页面），取消后台任务
+            task.cancel()
+            raise
 
-    # 返回流式响应
     return StreamingResponse(
         ingestion_stream_generator(),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        # 防止 Nginx 等代理服务器缓存流式响应
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"} 
     )
 
 if __name__ == "__main__":

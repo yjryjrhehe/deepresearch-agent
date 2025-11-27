@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiofiles>=25.1.0",
     "docling==2.58.0",
     "docling-core==2.49.0",
     "dotenv>=0.9.9",
@@ -13,6 +14,7 @@ dependencies = [
     "langchain>=1.0.5",
     "langchain-community>=0.4.1",
     "langchain-openai>=1.0.2",
+    "langfuse>=3.10.1",
     "langgraph[sqlite]>=1.0.3",
     "litellm[proxy]>=1.79.3",
     "numpy>=2.3.4",

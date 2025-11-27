@@ -266,7 +266,7 @@ export default function App() {
           <h1 className="text-3xl md:text-4xl font-bold text-blue-600 flex items-center justify-center gap-3">
             <FileText className="w-10 h-10" /> DeepResearch Agent
           </h1>
-          <p className="text-gray-500 mt-2 text-lg">基于 LangGraph 的人机协同研究助手</p>
+          <p className="text-gray-500 mt-2 text-lg">人机协同深度研究助手</p>
         </header>
 
         <div className="bg-white p-6 rounded-xl shadow-sm mb-6 border border-gray-100">
@@ -363,7 +363,7 @@ export default function App() {
                     </div>
                     
                     {task.status === 'researching' && (
-                      <p className="text-xs text-blue-600 animate-pulse">🔍 {task.message.replace("正在研究", "").replace("任务...", "")} (检索中...)</p>
+                      <p className="text-xs text-blue-600 animate-pulse">🔍 {task.message.replace("正在研究", "").replace("任务...", "")} (研究中...)</p>
                     )}
                     
                     {task.status === 'completed' && (

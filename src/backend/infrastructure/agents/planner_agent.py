@@ -9,6 +9,9 @@ from langchain_core.callbacks import adispatch_custom_event
 
 from ..llm.factory import get_research_llm
 from .states import ResearchTask, PlannerState
+# 引入新提取的提示词模块
+from .prompt.planner_prompt import PLANNER_SYSTEM_PROMPT, INSTRUCTION_INITIAL_PLAN, INSTRUCTION_REFLECTION_APPEND, INSTRUCTION_USER_MODIFICATION, USER_PROMPT_TEMPLATE 
+from .utils import construct_messages_with_fallback
 
 # ==========================================
 # 1. 核心 Planner Logic
@@ -33,69 +36,73 @@ async def generate_plan_logic(state: PlannerState, config: RunnableConfig):
     # --- 逻辑分支判断 ---
     is_incremental = False 
     
-    # 基础 System Prompt
-    system_prompt = """你是一名专业的'研究规划智能体'。
-        ### 输出格式
-        请输出一个标准的 JSON 列表 (Array)，包含以下字段：
-        {
-            "title": "<任务标题>",
-            "intent": "<任务目的>",
-            "query": "<搜索查询词>"
-        }"""
+    # ------------------------------------------------------------------
+    # 优化后的 System Prompt
+    # ------------------------------------------------------------------
+    system_prompt = PLANNER_SYSTEM_PROMPT
 
     if user_feedback:
         # [模式 A: 用户修改] -> 全量重写
-        log_msg = "检测到用户反馈，进入 [全量重写模式]..."
+        prompt_name = "planner/planner-modification"
+        log_msg = "检测到用户反馈，进入 [大纲重构模式]..."
         is_incremental = False
-        specific_instruction = f"""
-            用户对现有计划提出了修改意见。
-            请根据**用户反馈**，参考现有计划，**重新生成一份完整的、经过修正的研究任务列表**。
-            你可以修改、删除旧任务或添加新任务。
-            """
+        specific_instruction = INSTRUCTION_USER_MODIFICATION
+
     elif reflection_feedback:
         # [模式 B: 反思迭代] -> 增量追加
-        log_msg = "检测到反思反馈，进入 [增量追加模式]..."
+        prompt_name = "planner/planner-reflection"
+        log_msg = "检测到反思反馈，进入 [增量补全模式]..."
         is_incremental = True
-        specific_instruction = f"""
-            之前的研究存在缺失信息。
-            请根据**反思结果**，生成**需要补充的新任务**。
-            **注意**：
-            1. 仅输出新增的任务列表。
-            2. **绝对不要**重复输前端现有计划中已有的任务。
-            """
+        specific_instruction = INSTRUCTION_REFLECTION_APPEND
+
     else:
         # [模式 C: 初始规划] -> 全量生成
+        prompt_name = "planner/planner-initial"
         log_msg = "开始进行初始研究任务规划..."
         is_incremental = False
-        specific_instruction = f"""
-            这是一个新的研究目标。请生成一份完整的初始研究任务列表（通常3-5个关键任务）。
-            """
+        specific_instruction = INSTRUCTION_INITIAL_PLAN
 
     # 发送日志事件
     await adispatch_custom_event("agent_log", {"message": log_msg}, config=config)
 
+    context_vars = {
+        "goal": goal,
+        "current_plan_json": json.dumps(current_plan_data, ensure_ascii=False),
+        "user_feedback": user_feedback if user_feedback else "无",
+        "reflection_feedback": reflection_feedback if reflection_feedback else "无"
+    }
+
     # 构建最终 User Prompt
-    user_prompt_content = f"""
-            ### 上下文信息
-            1. **研究目标**: {goal}
-            2. **当前已有计划**: {json.dumps(current_plan_data, ensure_ascii=False)}
-            3. **用户反馈**: {user_feedback if user_feedback else "无"}
-            4. **反思结果**: {reflection_feedback if reflection_feedback else "无"}
+    messages, langfuse_prompt_obj = construct_messages_with_fallback(prompt_name, context_vars)
 
-            ### 指令
-            {specific_instruction}
+    if messages is None:
+        # --- Fallback: Langfuse 获取失败，使用本地模板 ---
+        # 只有在 messages 为 None 时才执行本地构建逻辑
+        user_prompt_content = USER_PROMPT_TEMPLATE.format(
+            goal=goal,
+            current_plan_json=json.dumps(current_plan_data, ensure_ascii=False),
+            user_feedback=user_feedback if user_feedback else "无",
+            reflection_feedback=reflection_feedback if reflection_feedback else "无",
+            specific_instruction=specific_instruction
+        )
 
-            请生成任务列表 JSON：
-            """
-
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt_content)
-    ]
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt_content)
+        ]
 
     # --- 调用 LLM ---
     try:
         llm = get_research_llm()
+        # 将 prompt 对象注入 config
+        # 确保 config metadata 存在
+        if config is None: config = {}
+        if "metadata" not in config: config["metadata"] = {}
+        
+        # 如果成功获取到了 langfuse 对象，注入它
+        if langfuse_prompt_obj:
+            config["metadata"]["langfuse_prompt"] = langfuse_prompt_obj
+            
         # 透传 config 确保 trace 完整
         response = await llm.ainvoke(messages, config=config)
         content = response.content
