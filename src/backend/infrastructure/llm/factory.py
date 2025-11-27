@@ -80,8 +80,8 @@ def get_research_llm() -> ChatOpenAI:
     获取用于 research 的 LLM 客户端单例。
     """
     return ChatOpenAI(
-        base_url=settings.rewrite_llm.base_url,
-        api_key=settings.rewrite_llm.api_key,
-        model=settings.rewrite_llm.model,
+        base_url=settings.research_llm.base_url,
+        api_key=settings.research_llm.api_key,
+        model=settings.research_llm.model,
         temperature=0
     )

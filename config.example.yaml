@@ -1,0 +1,40 @@
+model_list:
+  - model_name: "glm-4-flashx"  
+    litellm_params:
+      model: "openai/glm-4-flashx-250414"
+      api_base: "https://open.bigmodel.cn/api/paas/v4/"
+      api_key: "xxx"
+
+  - model_name: "glm-4v-plus"  
+    litellm_params:
+      model: "openai/glm-4v-plus-0111" 
+      api_base: "https://open.bigmodel.cn/api/paas/v4/"
+      api_key: "xxx"
+  
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: "gemini-2.5-flash"
+      api_key: "xxx"
+  
+  - model_name: "qwen3-max"  
+    litellm_params:
+      model: "openai/qwen3-max" 
+      api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      api_key: "xxx"
+
+  # --- 本地 Ollama ---
+  - model_name: "qwen3-4b-local" 
+    litellm_params:
+      model: "ollama/qwen3:4b"
+      api_base: "http://localhost:11434"
+  
+  - model_name: "qwen3-embedding-4b-local"
+    litellm_params:
+      model: "ollama/qwen3-embedding:4b"
+      api_base: "http://localhost:11434"
+      drop_params: True  # <-- **在这里添加这一行**
+
+
+server_settings:
+  port: 4000          # <--- 在这里显式设置想要的端口
+  host: "0.0.0.0"     

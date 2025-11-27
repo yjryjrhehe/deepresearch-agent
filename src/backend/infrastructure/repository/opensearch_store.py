@@ -545,7 +545,8 @@ class AsyncOpenSearchRAGStore(SearchRepository):
                 actions_generator, 
                 # 修改点：从 settings.opensearch 读取
                 chunk_size=settings.opensearch.bulk_chunk_size, 
-                raise_on_error=False,
+                max_chunk_bytes=10 * 1024 * 1024, # 关键：限制单次请求最大为 10MB
+                raise_on_error=False,          # 建议设为 False，避免单个失败炸掉整个流程
                 max_retries=3
             )
 

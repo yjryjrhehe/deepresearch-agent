@@ -1,0 +1,75 @@
+# (新增) 日志级别
+LOG_LEVEL="INFO"
+
+# --- 2. LiteLLM 代理 (用于 Agent/RAG 服务)  ---
+LITELLM_PROXY_URL="http://127.0.0.1:4000"
+
+# -----------------------------------------------------------------
+# Docling 解析器 (VLM/LLM) 配置 
+# -----------------------------------------------------------------
+
+# VLM 配置 (用于图片/公式识别)
+DOCLING_VLM_API_KEY="xx"
+DOCLING_VLM_BASE_URL="http://127.0.0.1:4000"
+DOCLING_VLM_MODEL="glm-4v-plus"
+DOCLING_VLM_MAX_CONCURRENCY="5"
+
+# LLM 配置 (用于表格增强等)
+DOCLING_LLM_API_KEY="xx"
+DOCLING_LLM_BASE_URL="http://127.0.0.1:4000"
+DOCLING_LLM_MODEL="glm-4-flashx"
+DOCLING_LLM_MAX_CONCURRENCY="30"
+
+# splitter 配置（文本分块配置）
+MAX_CHUNK_TOKENS=1024
+ENCODING_NAME="cl100k_base"
+CHUNK_OVERLAP_TOKENS=100
+
+# LLM 配置 (用于文本块预处理)
+PREPROCESSING_LLM_API_KEY="xx"
+PREPROCESSING_LLM_BASE_URL="http://127.0.0.1:4000"
+PREPROCESSING_LLM_MODEL="glm-4-flashx"
+PREPROCESSING_LLM_MAX_CONCURRENCY=30
+
+# embedding模型配置
+EMBEDDING_LLM_API_KEY="xx"
+EMBEDDING_LLM_BASE_URL="http://127.0.0.1:4000"
+EMBEDDING_LLM_MODEL="qwen3-embedding-4b-local"
+EMBEDDING_LLM_DIMENSION=2560
+EMBEDDING_LLM_MAX_CONCURRENCY=5
+
+# LLM 配置 (用于query rewrite)
+REWRITE_LLM_API_KEY="xx"
+REWRITE_LLM_BASE_URL="http://127.0.0.1:4000"
+REWRITE_LLM_MODEL="glm-4-flashx"
+REWRITE_LLM_MAX_CONCURRENCY=30
+
+# LLM 配置 (用于research)
+RESEARCH_LLM_API_KEY="xx"
+RESEARCH_LLM_BASE_URL="http://127.0.0.1:4000"
+# RESEARCH_LLM_MODEL="glm-4-flashx"
+RESEARCH_LLM_MODEL="qwen3-max"
+RESEARCH_LLM_MAX_CONCURRENCY=30
+
+# TEI Reranker 配置 
+TEI_RERANK_BASE_URL="http://localhost:8082"
+TEI_RERANK_API_KEY=None
+# 用于控制 httpx 客户端的并发连接数
+TEI_RERANK_MAX_CONCURRENCY=50
+TEI_RERANK_TIMEOUT=30.0
+
+# opensearch信息配置
+OPENSEARCH_INDEX_NAME="rag_system_chunks_async"
+OPENSEARCH_HOST='localhost'
+OPENSEARCH_PORT=9200
+AUTH='admin:admin'
+OPENSEARCH_USE_SSL=False
+OPENSEARCH_VERIFY_CERTS=False
+OPENSEARCH_BULK_CHUNK_SIZE=100
+
+# langfuse 信息配置
+LANGFUSE_SECRET_KEY="sk-lf-7d3254c6-7526-40f3-b04d-65cd74789c46"
+LANGFUSE_PUBLIC_KEY="pk-lf-bf5bdbd6-a16a-4841-b2dc-7494838551e1"
+LANGFUSE_BASE_URL="http://localhost:3000"
+
+
