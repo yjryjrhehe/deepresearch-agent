@@ -60,7 +60,7 @@ def run_services():
         # ========================================================
         print("\n🔌 [2/3] 正在启动 FastAPI (Backend)...")
         uvicorn_process = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "src.backend.api.server:app", "--port", "8002", "--reload"],
+            [sys.executable, "-m", "uvicorn", "src.backend.api.server:app", "--port", "8002"],
             env=os.environ,
             shell=False
         )
