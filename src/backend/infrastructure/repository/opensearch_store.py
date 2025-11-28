@@ -568,35 +568,6 @@ class AsyncOpenSearchRAGStore(SearchRepository):
                 log.error(f"刷新索引 {self.index_name} 失败: {e.status_code} {e.info}", exc_info=True)
 
     # --- 异步批量查询 ---
-    
-    async def hybrid_search_batch(
-        self, 
-        queries: List[str], 
-        k: int = 5, 
-        rrf_k: int = 60
-    ) -> List[List[RetrievedChunk]]: 
-        """
-        异步批量混合搜索。
-        返回: List[List[RetrievedChunk]]
-        """
-        if not queries:
-            return []
-            
-        log.info(f"--- 开始 *异步* 批量混合搜索 (共 {len(queries)} 个查询) ---")
-        
-        tasks = [
-            self.hybrid_search(query, k=k, rrf_k=rrf_k)
-            for query in queries
-        ]
-        
-        try:
-            all_results = await asyncio.gather(*tasks)
-            log.info(f"--- *异步* 批量混合搜索完成 ---")
-            return all_results
-            
-        except Exception as e:
-            log.error(f"批量混合搜索过程中发生错误: {e}", exc_info=True)
-            return [[] for _ in queries]
 
     async def hybrid_search_batch(
         self, 

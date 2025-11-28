@@ -255,9 +255,9 @@ class LangfuseSettings(BaseConfigSettings):
         case_sensitive=False,
     )
 
-    secret_key: str = "sk-lf-7d3254c6-7526-40f3-b04d-65cd74789c46"
-    public_key: str = "pk-lf-bf5bdbd6-a16a-4841-b2dc-7494838551e1"
-    base_url: str = "http://localhost:3000"
+    secret_key: str 
+    public_key: str 
+    base_url: str 
 
 
 class Settings(BaseConfigSettings):

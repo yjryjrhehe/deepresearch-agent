@@ -12,8 +12,10 @@ services:
       # 禁用安全插件 (开发环境专用)
       - DISABLE_SECURITY_PLUGIN=true
       # 内存配置 (建议至少 2GB 物理内存)
-      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g
       - bootstrap.memory_lock=true
+      - thread_pool.write.size=8             # 增加写线程
+      - thread_pool.write.queue_size=1000    # 增加队列深度
     ulimits:
       memlock:
         soft: -1

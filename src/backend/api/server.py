@@ -89,16 +89,37 @@ async def review_plan(
 # 2. 文档上传与解析接口
 # ==========================================
 UPLOAD_DIR = "uploads"
+# 限制最大文件大小 (100MB)
+MAX_FILE_SIZE_MB = 100
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # 辅助函数：异步保存文件
 async def save_upload_file_async(upload_file: UploadFile, destination: str):
+    file_size = 0
     try:
         async with aiofiles.open(destination, 'wb') as out_file:
-            # 这种方式是真正的异步读写，不会阻塞 Event Loop
-            while content := await upload_file.read(1024 * 1024):  # 1MB chunks
+            while content := await upload_file.read(1024 * 1024):  # 每次读取 1MB
+                file_size += len(content)
+                
+                # Check: 如果超过最大限制
+                if file_size > MAX_FILE_SIZE_BYTES:
+                    raise HTTPException(
+                        status_code=413, # Payload Too Large
+                        detail=f"文件过大，超过限制 ({MAX_FILE_SIZE_MB}MB)"
+                    )
+                
                 await out_file.write(content)
+    except HTTPException:
+        # 如果是大小超限触发的异常，抛出给上层
+        # 在抛出前，必须删除这个只写了一半的垃圾文件
+        if os.path.exists(destination):
+            os.remove(destination)
+        raise 
     except Exception as e:
+        # 其他 IO 错误
+        if os.path.exists(destination):
+            os.remove(destination)
         raise HTTPException(status_code=500, detail=f"文件保存失败: {e}")
 
 @app.post("/api/ingest/upload")

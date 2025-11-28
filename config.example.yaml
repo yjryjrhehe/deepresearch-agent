@@ -3,24 +3,24 @@ model_list:
     litellm_params:
       model: "openai/glm-4-flashx-250414"
       api_base: "https://open.bigmodel.cn/api/paas/v4/"
-      api_key: "xxx"
+      api_key: "os.environ/GLM_API_KEY"
 
   - model_name: "glm-4v-plus"  
     litellm_params:
       model: "openai/glm-4v-plus-0111" 
       api_base: "https://open.bigmodel.cn/api/paas/v4/"
-      api_key: "xxx"
+      api_key: "os.environ/GLM_API_KEY"
   
   - model_name: gemini-2.5-flash
     litellm_params:
       model: "gemini-2.5-flash"
-      api_key: "xxx"
+      api_key: "os.environ/GEMINI_API_KEY"
   
   - model_name: "qwen3-max"  
     litellm_params:
       model: "openai/qwen3-max" 
       api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-      api_key: "xxx"
+      api_key: "os.environ/QWEN_API_KEY"
 
   # --- 本地 Ollama ---
   - model_name: "qwen3-4b-local" 
