@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 
 # ================= 配置区域 =================
 FRONTEND_DIR = "src/frontend"  # 前端目录
+MODEL_ID = "BAAI/bge-reranker-base" # ModelScope 模型 ID
+MODELS_ROOT = "models" # 本地模型存放根目录
 # ===========================================
 
 def wait_for_port(port, host='127.0.0.1', timeout=120, service_name="Service"):
@@ -28,6 +30,69 @@ def wait_for_port(port, host='127.0.0.1', timeout=120, service_name="Service"):
             time.sleep(0.5) # 每0.5秒检测一次
             print(".", end="", flush=True)
 
+def check_and_download_model():
+    """
+    检查并使用 modelscope 命令行下载模型
+    """
+    print(f"\n📦 [Pre-check] 检查模型环境...")
+    
+    # 1. 检查路径：计算完整的模型路径用于检查 (models/BAAI/bge-reranker-base)
+    full_model_path = os.path.join(MODELS_ROOT, *MODEL_ID.split("/"))
+
+    # 检查 config.json 是否存在于完整路径下
+    if os.path.exists(full_model_path) and os.path.exists(os.path.join(full_model_path, "config.json")):
+        print(f"✅ 模型已存在于: {full_model_path}")
+        return
+
+    # 2. 如果不存在，下载到 models 根目录
+    # 注意：根据 modelscope 行为，指定 --local_dir models 会自动在其下创建 BAAI/bge-reranker-base
+    print(f"⬇️  未检测到模型，正在调用命令行下载: {MODEL_ID} ...")
+    print(f"    下载目标根目录: {MODELS_ROOT}")
+
+    try:
+        # 使用 subprocess 调用命令行
+        # check=True 会在命令返回非零退出码时抛出 CalledProcessError
+        cmd = f"modelscope download --model {MODEL_ID} --local_dir {MODELS_ROOT}"
+        subprocess.run(cmd, shell=True, check=True, env=os.environ)
+        
+        print("✅ 模型下载命令执行完毕！")
+    except subprocess.CalledProcessError:
+        print("❌ 错误: 模型下载失败。")
+        print("👉 请确保已安装 modelscope 命令行工具: pip install modelscope")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ 发生未知错误: {e}")
+        sys.exit(1)
+
+def check_and_install_frontend_deps():
+    """
+    检查前端 node_modules 是否存在，不存在则执行 npm install
+    """
+    print(f"\n📦 [Pre-check] 检查前端依赖...")
+    
+    # 检查 node_modules 是否存在
+    node_modules_path = os.path.join(FRONTEND_DIR, "node_modules")
+    
+    if os.path.exists(node_modules_path) and os.path.isdir(node_modules_path):
+        print(f"✅ 前端依赖 (node_modules) 已存在，跳过安装。")
+        return
+
+    print(f"⬇️  未检测到 node_modules，正在执行 npm install ...")
+    print(f"    执行目录: {FRONTEND_DIR}")
+
+    try:
+        # 在前端目录下执行 npm install
+        # shell=True 是必须的，以便在 Windows 上找到 npm 命令
+        subprocess.run("npm install", cwd=FRONTEND_DIR, shell=True, check=True, env=os.environ)
+        print("✅ 前端依赖安装完成！")
+    except subprocess.CalledProcessError:
+        print("❌ 错误: npm install 失败。")
+        print("👉 请确保已安装 Node.js，或者尝试手动进入 src/frontend 执行 npm install")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ 发生未知错误: {e}")
+        sys.exit(1)
+
 def run_services():
     print("🚀 [DeepResearch Agent] 严格顺序启动脚本")
     print("--------------------------------------------------")
@@ -36,6 +101,12 @@ def run_services():
     print("📂 [Init] 正在加载 .env 环境变量...")
     load_dotenv(override=True)
     os.environ["PYTHONUTF8"] = "1"
+
+    # ========================================================
+    # 阶段 0: 环境预检 (模型下载 & 前端依赖)
+    # ========================================================
+    check_and_download_model()
+    check_and_install_frontend_deps()
 
     processes = []
 
@@ -74,7 +145,7 @@ def run_services():
         # 阶段 3: 启动 Frontend (Port 5173 - 默认 Vite 端口)
         # ========================================================
         print(f"\n💻 [3/3] 正在启动前端 (npm run dev)...")
-        npm_cmd = "npm run dev -- --host 127.0.0.1 -- port 5173"
+        npm_cmd = "npm run dev -- --host 127.0.0.1 --port 5173"
         npm_process = subprocess.Popen(
             npm_cmd,
             cwd=FRONTEND_DIR,
@@ -83,8 +154,7 @@ def run_services():
         )
         processes.append(npm_process)
         
-        # 可选：也等待前端端口就绪，为了完美的“全部启动”提示
-        # 注意：Vite 可能会用 ipv6 (::1) 或 ipv4 (127.0.0.1)，这里简单检测 ipv4
+        # 可选：也等待前端端口就绪
         if not wait_for_port(5173, service_name="Frontend"):
             raise RuntimeError("Frontend 启动失败，端口未响应。")
 

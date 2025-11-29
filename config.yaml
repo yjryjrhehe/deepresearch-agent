@@ -11,11 +11,6 @@ model_list:
       api_base: "https://open.bigmodel.cn/api/paas/v4/"
       api_key: "os.environ/GLM_API_KEY"
   
-  - model_name: gemini-2.5-flash
-    litellm_params:
-      model: "gemini-2.5-flash"
-      api_key: "os.environ/GEMINI_API_KEY"
-  
   - model_name: "qwen3-max"  
     litellm_params:
       model: "openai/qwen3-max" 
