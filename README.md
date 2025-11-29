@@ -353,12 +353,12 @@ deepresearch-agent/
 │   │   ├── infrastructure/        # 基础设施层
 │   │   │   ├── agents/            # 多智能体系统
 │   │   │   ├── parse/             # 文档解析
-│   │   │   ├── repository/        # 数据存储
+│   │   │   ├── repository/        # 数据存储和检索
 │   │   │   ├── llm/               # LLM集成
 │   │   │   └── langfuse/          # 监控追踪
 │   │   └── services/              # 服务层
-│   │       ├── agent_service.py
-│   │       ├── ingestion_service.py
+│   │       ├── agent_service.py   # 深度研究智能体服务
+│   │       ├── ingestion_service.py # 数据摄入和解析服务
 │   │       └── factory.py
 │   └── frontend/
 │       ├── src/
@@ -368,12 +368,11 @@ deepresearch-agent/
 │       │   └── App.css            # 组件样式
 │       ├── package.json
 │       └── vite.config.js
-├── data/                          # 数据目录
-│   ├── clickhouse/               # ClickHouse数据
-│   ├── minio/                    # 对象存储
-│   └── postgres/                 # PostgreSQL数据
-├── models/                        # 模型文件
+├── models/                        # TEI模型文件
 │   └── BAAI/bge-reranker-base
+|—— langfuse/                      # langfuse部署文件
+|	└── .env					 # 环境变量
+|	└── docker-compose.yml         # 容器编排
 ├── uploads/                       # 上传文件
 ├── docker-compose.yml             # 容器编排
 ├── config.yaml                    # LiteLLM配置

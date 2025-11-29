@@ -9,7 +9,6 @@ wheels/
 # Virtual environments
 .venv
 .env
-config.yaml
 
 models/
 docs/
