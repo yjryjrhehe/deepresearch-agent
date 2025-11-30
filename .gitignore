@@ -16,6 +16,7 @@ opensearch_data/
 .pytest_cache/
 evaluation/
 .claude/
+.vscode/
 
 uploads/
 langfuse/data/

@@ -18,6 +18,11 @@ DeepResearch-Agent 是一个基于 **多智能体协作** 的 **AI深度研究�
 - **可视化**的进度追踪和结果展示
 - **企业级**的可观测性和追踪能力
 
+<div align="center">
+  <img src="assets/app-screenshot-init.png" width="800" />
+  <br>
+  <i>图 1：DeepResearch Agent 初始运行界面</i>
+</div>
 ---
 
 ## ✨ 核心特性
@@ -173,11 +178,11 @@ QWEN_API_KEY="your_qwen_api_key"
 **安装Ollama:**
 
 ```bash
-# macOS/Linux
-curl -fsSL https://ollama.ai/install.sh | sh
-
 # Windows
 # 从 https://ollama.ai 下载并安装
+
+# macOS/Linux
+curl -fsSL https://ollama.ai/install.sh | sh
 ```
 
 **拉取Embedding模型:**
@@ -228,8 +233,45 @@ docker-compose up -d
 
 如果需要使用Langfuse进行提示词管理、模型输入输出追踪和评估，启动可选的Langfuse服务：
 
+项目需要在项目根目录配置 `.env` 文件。先复制并重命名`.env.example` 模板文件：
+
 ```bash
 cd langfuse
+cp .env.example .env
+```
+
+然后编辑 `.env` 文件，进行以下设置：
+
+```env
+# --- 1. 数据库密码 ---
+# 设置 PostgreSQL 密码
+POSTGRES_PASSWORD=xxx
+
+# 设置 ClickHouse 密码
+CLICKHOUSE_PASSWORD=xxx
+
+# 设置 Minio 密码
+MINIO_ROOT_PASSWORD=xxx
+
+# 设置 Redis 密码
+REDIS_AUTH=xxx
+
+# --- 2. Langfuse 核心安全密钥 ---
+# 必须是一个 64 位的十六进制字符串 (32 字节)。
+# 在 Linux/macOS 上运行: openssl rand -hex 32
+# 在 Windows 上运行：python -c "import secrets; print(secrets.token_hex(32))"
+ENCRYPTION_KEY=90e2abbf1940d5c028627e86398883703437be3a4fd1xxxxxx
+
+# 用于会话签名的随机字符串
+NEXTAUTH_SECRET=4f65e01508625195fbdacb56bbcb6337fc3b0ac238d52xxxxx
+
+# 用于内部哈希的随机字符串
+SALT=ea92f2469f59310851d1b9fb30c33915c5c30ab3d0xxxxx
+```
+
+**注意**：相关密码设置需要包含数字、大小写子母和字符。
+
+```bash
 docker-compose up -d
 ```
 
@@ -485,6 +527,12 @@ docker-compose up -d tei-reranker
 
 访问前端应用 http://localhost:5173，点击"上传文档"按钮，选择需要研究的PDF或Word文档。
 
+<div align="center">
+  <img src="assets/parse-documents.png" width="800" />
+  <br>
+  <i>图 2：上传文档与解析</i>
+</div>
+
 **上传流程说明：**
 
 当文档上传后，系统会自动进行以下处理：
@@ -514,9 +562,15 @@ docker-compose up -d tei-reranker
    - 向量维度：2560
    - 将向量和元数据存储到OpenSearch
 
-**预期耗时：** 文档解析时间取决于文档大小和复杂度，一般每页需要1-3秒。
+**预期耗时：** 文档解析时间取决于文档大小和复杂度。（实测，对于文本型pdf，七十页的硕士论文处理时间在3-8分钟，实际时间与图片数量有关。）
 
 ### 2. 创建研究任务
+
+<div align="center">
+  <img src="assets/research-init.png" width="800" />
+  <br>
+  <i>图 3：创建研究任务</i>
+</div>
 
 在主界面的输入框中输入您的研究目标或问题。有效的输入应该：
 
@@ -536,6 +590,12 @@ docker-compose up -d tei-reranker
 #### 阶段1：规划（Orchestrator + Planner）
 协调器首先分析用户输入，生成研究计划，然后由规划器智能体详细展开研究大纲。
 
+<div align="center">
+  <img src="assets/research-plan.png" width="800" />
+  <br>
+  <i>图 4：智能体生成研究大纲</i>
+</div>
+
 **流程：**
 1. 协调器接收研究任务，分解为子问题
 2. 规划器基于文档库和子问题生成详细的研究大纲
@@ -551,6 +611,12 @@ docker-compose up -d tei-reranker
 
 #### 阶段2：执行（Worker）
 执行器智能体根据审核通过的研究大纲，对每个子主题进行深度研究。
+
+<div align="center">
+  <img src="assets/researching.png" width="800" />
+  <br>
+  <i>图 5：智能体研究过程</i>
+</div>
 
 **执行流程：**
 1. 针对每个研究方向，执行器会：
@@ -575,6 +641,12 @@ docker-compose up -d tei-reranker
 #### 阶段3：反思（Reflector）
 反思器智能体评估研究结果的质量和完整性。
 
+<div align="center">
+  <img src="assets/research-reflect.png" width="800" />
+  <br>
+  <i>图 6：智能体反思阶段</i>
+</div>
+
 **评估维度：**
 1. **内容完整性**：是否覆盖了研究大纲的所有要点
 2. **证据充分性**：是否提供了足够的文档证据支持结论
@@ -588,6 +660,12 @@ docker-compose up -d tei-reranker
 
 #### 阶段4：报告生成（Reporter）
 报告生成器将所有研究结果汇总成结构化的研究报告。
+
+<div align="center">
+  <img src="assets/reporting.png" width="800" />
+  <br>
+  <i>图 7：报告生成阶段</i>
+</div>
 
 **报告结构：**
 - 执行摘要：核心发现和结论
@@ -624,14 +702,10 @@ docker-compose up -d tei-reranker
 **前端结果展示：**
 1. **主报告视图**
    - Markdown格式渲染，支持LaTeX数学公式
-   - 可折叠的章节导航
-   - 一键复制和导出功能
-
 2. **引用文档导航**
    - 点击文档引用可直接跳转到相关段落
    - 查看文档来源和上下文
    - 支持多文档交叉引用
-
 3. **性能指标**
    - 文档处理数量
    - 检索相关性评分
@@ -666,160 +740,9 @@ Langfuse是一个开源的LLM应用可观测性平台，本项目集成了Langfu
 
 ### 使用 Langfuse
 
-#### 1. 启动 Langfuse 服务
+见 [Langfuse Documentation - Langfuse](https://langfuse.com/docs)。
 
-在项目根目录执行：
-```bash
-cd langfuse
-docker-compose up -d
-```
-
-#### 2. 访问 Web 界面
-
-打开浏览器访问 http://localhost:3000，首次访问需要创建管理员账户。
-
-#### 3. 创建项目
-
-在 Langfuse Web 界面中：
-
-1. 点击"New Project"创建新项目
-2. 填写项目名称："DeepResearch-Agent"
-3. 获取项目的Public Key和Secret Key
-4. 更新项目根目录的`.env`文件：
-```env
-LANGFUSE_SECRET_KEY="sk-lf-your-secret-key"
-LANGFUSE_PUBLIC_KEY="pk-lf-your-public-key"
-LANGFUSE_BASE_URL="http://localhost:3000"
-```
-
-#### 4. 管理提示词
-
-**查看提示词：**
-
-访问 Projects > DeepResearch-Agent > Prompts，可以看到四个主要提示词：
-- `planner_prompt`: 规划器提示词
-- `worker_prompt`: 执行器提示词
-- `reflector_prompt`: 反思器提示词
-- `reporter_prompt`: 报告生成提示词
-
-**修改提示词：**
-
-1. 点击对应提示词名称进入编辑页面
-2. 修改提示词内容（支持变量占位符，如`{user_question}`）
-3. 填写版本号和更新说明
-4. 点击"Create Version"保存新版本
-5. 新版本会自动被系统使用
-
-**提示词变量说明：**
-- `{user_question}`: 用户输入的研究问题
-- `{research_outline}`: 研究大纲（规划阶段）
-- `{context_documents}`: 检索到的文档片段
-- `{previous_feedback}`: 之前的反馈（反思阶段）
-
-#### 5. 查看追踪数据
-
-**Tracing 页面：**
-
-访问 Projects > DeepResearch-Agent > Tracing，查看所有追踪记录：
-
-**过滤器选项：**
-
-- 按时间范围过滤
-- 按智能体类型过滤（planner/worker/reflector/reporter）
-- 按模型名称过滤
-- 按状态过滤（成功/失败）
-
-**追踪详情：**
-
-点击任意追踪记录，查看详细信息：
-- **输入**：用户问题、提示词、上下文文档
-- **输出**：模型生成的完整回复
-- **元数据**：
-  - 模型名称和版本
-  - Token消耗（prompt_tokens、completion_tokens）
-  - 延迟（latency）
-  - 成本估算
-  - 错误信息（如有）
-
-#### 6. 评估功能
-
-**手动评估：**
-
-在追踪详情页面，可以对每次调用进行评估：
-- **评分**：1-5星评分
-- **标签**：添加自定义标签（如"准确"、"有帮助"、"不相关"）
-- **反馈文本**：详细的文字反馈
-
-**自动评估：**
-
-在 Settings > Scoring 中配置评估规则：
-- 基于关键词的自动评分
-- 基于输出长度的自动评分
-- 基于延迟阈值的自动评分
-
-#### 7. 性能分析
-
-**仪表板页面：**
-
-访问 Projects > DeepResearch-Agent > Dashboard，查看关键指标：
-
-**核心指标：**
-- **请求总量**：总调用次数
-- **成功率**：成功调用占比
-- **平均延迟**：所有调用的平均响应时间
-- **Token消耗**：每小时的token使用量
-- **成本分析**：基于token消耗的成本估算
-
-**图表分析：**
-- 时间序列图：延迟和成功率随时间变化
-- 饼图：不同模型的调用分布
-- 热力图：不同时间段的使用情况
-- 排行榜：表现最好/最差的提示词版本
-
-### 高级用法
-
-#### 1. 自定义评估指标
-
-在 Langfuse 中创建自定义评估指标：
-
-```python
-# 在代码中集成自定义评估
-from langfuse.measurement import measurement
-
-def evaluate_research_quality(response):
-    score = calculate_quality_score(response)
-    measurement.score(
-        name="research_quality",
-        value=score,
-        comment="Based on completeness and depth"
-    )
-```
-
-#### 2. 告警配置
-
-在 Settings > Alerts 中配置告警：
-- 当延迟超过阈值时发送邮件通知
-- 当成功率低于阈值时发送Slack通知
-- 当成本超过预算时发送钉钉通知
-
-#### 3. 数据导出
-
-在 Export 页面导出追踪数据：
-- CSV格式：适合Excel分析
-- JSON格式：适合程序处理
-- 支持按时间范围和条件过滤导出
-
-### 不使用 Langfuse 的替代方案
-
-如果不使用 Langfuse，系统会：
-- 使用代码中预定义的提示词模板
-- 在控制台输出基本的执行日志
-- 不记录详细的模型调用历史
-- 无法进行提示词A/B测试和效果评估
-
-这种模式下，所有提示词都硬编码在 `src/backend/infrastructure/agents/prompt/` 目录下的 Python 文件中。如需修改，需要直接编辑这些文件并重启服务。
-
----
+------
 
 ## 🛠️ 项目结构
 
