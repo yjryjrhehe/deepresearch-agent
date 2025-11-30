@@ -62,26 +62,45 @@ class AgentServiceImpl(AgentService):
         """
         内部方法：执行 Graph 并生成 SSE 格式的流。
         """
-        # 1. 【统一入口】使用工厂函数初始化（或获取已存在的）实例
-        langfuse = init_langfuse_client(
-            public_key=settings.langfuse.public_key,
-            secret_key=settings.langfuse.secret_key,
-            base_url=settings.langfuse.base_url
-        )
-        # 2. 初始化 Handler
-        # 因为上面一步已经确保了 Langfuse 实例存在且注册了，
-        # 这里不需要传参，它会自动找到上面那个实例
-        langfuse_handler = CallbackHandler()
+        
+        # --- 🟢 修改开始：Langfuse 运行状态检测 ---
+        langfuse = None
+        callbacks = []
+        
+        try:
+            # 1. 初始化客户端
+            client = init_langfuse_client(
+                public_key=settings.langfuse.public_key,
+                secret_key=settings.langfuse.secret_key,
+                base_url=settings.langfuse.base_url
+            )
+            
+            # 2. 【关键步骤】执行连接检查
+            # auth_check() 会发起一个轻量级请求验证凭证和连接
+            # 如果连接被拒绝(Connection Refused)，这里会抛出异常或返回 False
+            if client and client.auth_check():
+                langfuse = client
+                # 只有检查通过，才初始化 Handler 并加入回调列表
+                langfuse_handler = CallbackHandler()
+                callbacks.append(langfuse_handler)
+            else:
+                print("[Langfuse] ⚠️ Auth check failed or service down. Tracing skipped.")
+                
+        except Exception as e:
+            # 捕获所有连接错误，防止应用崩溃
+            print(f"[Langfuse] ⚠️ Connection check failed: {e}. Tracing skipped.")
+            langfuse = None
+        # --- 🟢 修改结束 ---
 
         config = {
             "configurable": {"thread_id": thread_id}, 
-            "callbacks": [langfuse_handler],
-            # 🟢【修正点】：Key 必须以 "langfuse_" 开头
+            "callbacks": callbacks, # 使用动态生成的 callbacks 列表
             "metadata": {
-                "langfuse_session_id": thread_id,  # 只有这样写，Langfuse 才会把它归类到 Session
-                "thread_id": thread_id             # 保留这个作为普通元数据方便查看
+                # 即使没开启 Trace，保留 metadata 也不影响运行
+                "langfuse_session_id": thread_id,  
+                "thread_id": thread_id             
             }
-            }
+        }
 
         try:
             # 决定是启动新任务还是恢复中断
@@ -141,8 +160,9 @@ class AgentServiceImpl(AgentService):
             yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
 
         finally:
+            # --- 🟢 修改：Flush 时增加判空逻辑 ---
             try:
-                # 强制发送缓冲区的数据
+                # 只有当 langfuse 实例成功创建且检查通过时，才尝试 flush
                 if langfuse:
                     langfuse.flush()
             except Exception as e:
